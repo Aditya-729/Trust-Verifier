@@ -1,4 +1,4 @@
-# Trust Verifier
+# TrueCart
 
 Minimal, deterministic MVP that returns a trust verdict for a product URL.
 

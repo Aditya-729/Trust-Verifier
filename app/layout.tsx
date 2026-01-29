@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Trust Verifier",
+  title: "TrueCart",
   description:
     "Simple, rule-based trust checks for product claims vs policies.",
 };

@@ -207,7 +207,7 @@ export default function HomePage() {
         <div className="relative">
           <div className="text-center">
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-              Trust Verifier
+              TrueCart
             </p>
             <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
               Instant trust signal for any product link
