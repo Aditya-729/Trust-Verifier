@@ -15,12 +15,15 @@
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.12.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "autoprefixer": "latest",
+    "markdown-it": "^14.1.0",
     "postcss": "latest",
+    "puppeteer": "^23.11.1",
     "tailwindcss": "latest",
     "typescript": "latest"
   }
