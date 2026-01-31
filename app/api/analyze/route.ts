@@ -158,6 +158,7 @@ export async function POST(request: Request) {
         steps,
         insight,
         details,
+        previewImage: null,
       });
     }
 
@@ -204,6 +205,7 @@ export async function POST(request: Request) {
       steps,
       insight,
       details,
+      previewImage: mino.previewImage ?? null,
     });
   } catch (error) {
     return respond(["analysis_failed"]);

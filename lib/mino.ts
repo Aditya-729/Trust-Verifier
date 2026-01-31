@@ -7,17 +7,21 @@ export type MinoResult = {
   productUrl: string;
   productText: string;
   policyPages: MinoPolicyPage[];
+  previewImage?: string;
 };
 
 type RawMinoResult = {
   productUrl?: unknown;
   productText?: unknown;
   policyPages?: unknown;
+  screenshotDataUrl?: unknown;
+  previewImage?: unknown;
 };
 
 const PROMPT = [
   "Open the product page at the given url.",
   "Extract visible text from the product page.",
+  "Capture a single screenshot of the product page.",
   "Find links on the same site related to returns, refunds, warranty, or policies.",
   "Open up to 3 relevant policy pages (prioritize returns and warranty).",
   "Extract visible text from each policy page.",
@@ -25,6 +29,7 @@ const PROMPT = [
   "{",
   '  "productUrl": string,',
   '  "productText": string,',
+  '  "screenshotDataUrl": string,',
   '  "policyPages": [',
   '    { "url": string, "text": string }',
   "  ]",
@@ -108,6 +113,12 @@ export async function runMinoAgent(url: string): Promise<MinoResult> {
     typeof parsed.productUrl === "string" ? parsed.productUrl : url;
   const productText =
     typeof parsed.productText === "string" ? parsed.productText : "";
+  const previewImage =
+    typeof parsed.screenshotDataUrl === "string"
+      ? parsed.screenshotDataUrl
+      : typeof parsed.previewImage === "string"
+        ? parsed.previewImage
+        : undefined;
   const policyPages = Array.isArray(parsed.policyPages)
     ? parsed.policyPages
         .map((entry) => {
@@ -134,5 +145,6 @@ export async function runMinoAgent(url: string): Promise<MinoResult> {
     productUrl,
     productText,
     policyPages,
+    previewImage,
   };
 }

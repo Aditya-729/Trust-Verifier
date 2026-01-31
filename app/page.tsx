@@ -10,6 +10,7 @@ type AnalyzeResponse = {
   flags: RuleFlag[];
   explanations: string[];
   processingMs?: number;
+  previewImage?: string | null;
   steps?: Array<{
     name: string;
     status: "done" | "failed";
@@ -26,6 +27,7 @@ type AnalyzeResponse = {
   details?: {
     name: string;
     price: string | null;
+    description: string;
     flags: RuleFlag[];
     hiddenFindings: string[];
     policyStatus: "present" | "missing";
@@ -416,6 +418,14 @@ export default function HomePage() {
                         </div>
                         <div className="mt-4">
                           <p className="text-sm font-semibold text-slate-300">
+                            Description
+                          </p>
+                          <p className="mt-2 text-sm text-slate-300">
+                            {result.details.description}
+                          </p>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-slate-300">
                             Flags
                           </p>
                           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
@@ -486,6 +496,17 @@ export default function HomePage() {
                     {iframeStatus === "loading"
                       ? "Loading site preview..."
                       : "Showing live site preview (if allowed)."}
+                  </div>
+                </div>
+              ) : !loading && result?.previewImage ? (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+                  <img
+                    src={result.previewImage}
+                    alt="Captured product preview"
+                    className="h-64 w-full object-cover"
+                  />
+                  <div className="border-t border-white/10 bg-black/40 px-3 py-2 text-xs text-slate-500">
+                    Captured preview from agent.
                   </div>
                 </div>
               ) : (

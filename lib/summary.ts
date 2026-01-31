@@ -12,6 +12,7 @@ type ProductInsight = {
 type ProductDetails = {
   name: string;
   price: string | null;
+  description: string;
   flags: RuleFlag[];
   hiddenFindings: string[];
   policyStatus: "present" | "missing";
@@ -130,11 +131,15 @@ export function buildProductDetails(
   const policyStatus = policyText.trim() ? "present" : "missing";
   const name = extractProductName(productText, url);
   const price = extractPriceLabel(productText) ?? null;
+  const description =
+    firstSentences(productText, 6) ||
+    "No detailed description found on the product page.";
   const hiddenFindings = describeHiddenFindings(flags, policyStatus);
 
   return {
     name,
     price,
+    description,
     flags,
     hiddenFindings,
     policyStatus,
