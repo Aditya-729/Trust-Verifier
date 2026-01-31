@@ -38,6 +38,10 @@ export default function HomePage() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [pulseInput, setPulseInput] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [iframeStatus, setIframeStatus] = useState<
+    "idle" | "loading" | "loaded" | "failed"
+  >("idle");
   const easeOut = [0.16, 1, 0.3, 1] as const;
   const easeInOut = [0.4, 0, 0.2, 1] as const;
 
@@ -76,6 +80,30 @@ export default function HomePage() {
     const timer = setTimeout(() => setPulseInput(false), 150);
     return () => clearTimeout(timer);
   }, [url]);
+
+  useEffect(() => {
+    if (!loading) {
+      setElapsedMs(0);
+      return;
+    }
+    const start = Date.now();
+    const timer = setInterval(() => {
+      setElapsedMs(Date.now() - start);
+    }, 120);
+    return () => clearInterval(timer);
+  }, [loading]);
+
+  useEffect(() => {
+    if (!loading || !url) {
+      setIframeStatus("idle");
+      return;
+    }
+    setIframeStatus("loading");
+    const timeout = setTimeout(() => {
+      setIframeStatus((prev) => (prev === "loaded" ? prev : "failed"));
+    }, 4000);
+    return () => clearTimeout(timeout);
+  }, [loading, url]);
 
   const verdictConfig = useMemo(() => {
     const verdict = result?.verdict ?? "unclear";
@@ -183,12 +211,23 @@ export default function HomePage() {
     };
   }, [easeInOut, easeOut, result?.verdict]);
 
+  const activitySteps = useMemo(() => {
+    if (result?.steps?.length) return result.steps;
+    return [
+      { name: "Opening product page", status: "done" as const },
+      { name: "Scanning product copy", status: "done" as const },
+      { name: "Finding policy pages", status: "done" as const },
+      { name: "Extracting claims", status: "done" as const },
+      { name: "Comparing with policies", status: "done" as const },
+    ];
+  }, [result?.steps]);
+
   return (
     <motion.main
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: easeOut }}
-      className="relative mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center px-4 py-16"
+      className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-4 py-16"
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-[-10%] h-64 w-64 -translate-x-1/2 rounded-full bg-sky-400/20 blur-[120px]" />
@@ -200,7 +239,7 @@ export default function HomePage() {
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.7, ease: easeOut, delay: 0.1 }}
-        className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.4)] backdrop-blur-xl"
+        className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.4)] backdrop-blur-xl"
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5" />
@@ -286,113 +325,223 @@ export default function HomePage() {
             </motion.button>
           </form>
 
-          <section className="relative mt-10 min-h-[220px]">
-            <AnimatePresence mode="wait">
-              {result && !loading ? (
-                <motion.div
-                  key={result.verdict}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  transition={{ duration: 0.6, ease: easeOut }}
-                  className="absolute inset-0 flex flex-col items-center justify-center text-center"
-                >
+          <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_12px_50px_rgba(0,0,0,0.35)] backdrop-blur">
+              <AnimatePresence mode="wait">
+                {loading ? (
                   <motion.div
-                    {...verdictMotion}
-                    className={`relative flex flex-col items-center justify-center gap-3 rounded-3xl border border-white/10 bg-black/30 px-10 py-8 shadow-2xl backdrop-blur ${verdictConfig.glow}`}
+                    key="loading"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ duration: 0.4, ease: easeOut }}
+                    className="flex flex-col items-center justify-center gap-4 text-center"
                   >
                     <motion.div
-                      {...ringMotion}
-                      className={`pointer-events-none absolute inset-0 rounded-3xl border border-white/10 bg-gradient-to-r ${verdictConfig.ring} bg-[length:200%_200%]`}
-                    />
-                    <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/10" />
-                    <p
-                      className={`text-4xl font-semibold tracking-[0.2em] sm:text-5xl ${verdictConfig.accent}`}
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 1.4, repeat: Infinity }}
+                      className="text-xs uppercase tracking-[0.3em] text-slate-400"
                     >
-                      {verdictConfig.label}
+                      Live analysis
+                    </motion.div>
+                    <div className="text-3xl font-semibold text-white">
+                      Analyzing...
+                    </div>
+                    <p className="text-sm text-slate-400">
+                      Agent is exploring the product page and policy links.
                     </p>
-                    <p className="max-w-sm text-sm text-slate-300">
-                      {result.insight?.message ??
-                        "No conflicting policy signals detected."}
-                    </p>
-                    {result.insight?.summary ? (
-                      <p className="max-w-sm text-xs text-slate-400">
-                        {result.insight.summary}
+                    <div className="mt-2 text-xs text-slate-500">
+                      Elapsed: {(elapsedMs / 1000).toFixed(1)}s
+                    </div>
+                  </motion.div>
+                ) : result ? (
+                  <motion.div
+                    key={result.verdict}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ duration: 0.6, ease: easeOut }}
+                    className="flex flex-col items-center justify-center gap-5 text-center"
+                  >
+                    <motion.div
+                      {...verdictMotion}
+                      className={`relative flex flex-col items-center justify-center gap-3 rounded-3xl border border-white/10 bg-black/30 px-10 py-8 shadow-2xl backdrop-blur ${verdictConfig.glow}`}
+                    >
+                      <motion.div
+                        {...ringMotion}
+                        className={`pointer-events-none absolute inset-0 rounded-3xl border border-white/10 bg-gradient-to-r ${verdictConfig.ring} bg-[length:200%_200%]`}
+                      />
+                      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/10" />
+                      <p
+                        className={`text-4xl font-semibold tracking-[0.2em] sm:text-5xl ${verdictConfig.accent}`}
+                      >
+                        {verdictConfig.label}
                       </p>
+                      <p className="max-w-sm text-sm text-slate-300">
+                        {result.insight?.message ??
+                          "No conflicting policy signals detected."}
+                      </p>
+                      {result.insight?.summary ? (
+                        <p className="max-w-sm text-xs text-slate-400">
+                          {result.insight.summary}
+                        </p>
+                      ) : null}
+                    </motion.div>
+                    {result.details ? (
+                      <div className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                          Product details
+                        </p>
+                        <div className="mt-3 space-y-2 text-sm text-slate-200">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-slate-400">Name</span>
+                            <span className="text-right text-white">
+                              {result.details.name}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-slate-400">Price</span>
+                            <span className="text-right text-white">
+                              {result.details.price ?? "Not found"}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-slate-400">Policy pages</span>
+                            <span className="text-right text-white">
+                              {result.details.policyStatus === "present"
+                                ? "Detected"
+                                : "Not found"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-slate-300">
+                            Flags
+                          </p>
+                          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
+                            {result.details.flags.length ? (
+                              result.details.flags.map((flag) => (
+                                <li key={flag}>{flag}</li>
+                              ))
+                            ) : (
+                              <li>none</li>
+                            )}
+                          </ul>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-slate-300">
+                            Hidden costs or claims
+                          </p>
+                          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
+                            {result.details.hiddenFindings.length ? (
+                              result.details.hiddenFindings.map((finding) => (
+                                <li key={finding}>{finding}</li>
+                              ))
+                            ) : (
+                              <li>none detected</li>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
                     ) : null}
                   </motion.div>
-                  {result.details ? (
-                    <div className="mt-6 w-full max-w-lg rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left backdrop-blur">
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                        Product details
-                      </p>
-                      <div className="mt-3 space-y-2 text-sm text-slate-200">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-slate-400">Name</span>
-                          <span className="text-right text-white">
-                            {result.details.name}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-slate-400">Price</span>
-                          <span className="text-right text-white">
-                            {result.details.price ?? "Not found"}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-slate-400">Policy pages</span>
-                          <span className="text-right text-white">
-                            {result.details.policyStatus === "present"
-                              ? "Detected"
-                              : "Not found"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <p className="text-sm font-semibold text-slate-300">
-                          Flags
-                        </p>
-                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
-                          {result.details.flags.length ? (
-                            result.details.flags.map((flag) => (
-                              <li key={flag}>{flag}</li>
-                            ))
-                          ) : (
-                            <li>none</li>
-                          )}
-                        </ul>
-                      </div>
-                      <div className="mt-4">
-                        <p className="text-sm font-semibold text-slate-300">
-                          Hidden costs or claims
-                        </p>
-                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
-                          {result.details.hiddenFindings.length ? (
-                            result.details.hiddenFindings.map((finding) => (
-                              <li key={finding}>{finding}</li>
-                            ))
-                          ) : (
-                            <li>none detected</li>
-                          )}
-                        </ul>
-                      </div>
-                    </div>
-                  ) : null}
-                </motion.div>
+                ) : (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex h-full flex-col items-center justify-center gap-2 text-center"
+                  >
+                    <p className="text-sm text-slate-500">
+                      Paste a product URL to reveal its trust signal.
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      We compare product claims against policy pages.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-6 text-left shadow-[0_12px_50px_rgba(0,0,0,0.35)] backdrop-blur">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  {loading && url ? "Live portal" : "Agent activity"}
+                </p>
+                <span className="text-xs text-slate-500">
+                  {loading ? "Live" : "Last run"}
+                </span>
+              </div>
+              {loading && url && iframeStatus !== "failed" ? (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+                  <iframe
+                    title="Live site preview"
+                    src={url}
+                    className="h-64 w-full"
+                    onLoad={() => setIframeStatus("loaded")}
+                    onError={() => setIframeStatus("failed")}
+                  />
+                  <div className="border-t border-white/10 bg-black/40 px-3 py-2 text-xs text-slate-500">
+                    {iframeStatus === "loading"
+                      ? "Loading site preview..."
+                      : "Showing live site preview (if allowed)."}
+                  </div>
+                </div>
               ) : (
-                <motion.div
-                  key="empty"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 flex items-center justify-center text-center"
-                >
-                  <p className="text-sm text-slate-500">
-                    Paste a product URL to reveal its trust signal.
-                  </p>
-                </motion.div>
+                <>
+                  <div className="mt-4 space-y-3 text-sm">
+                    {activitySteps.map((step, index) => (
+                      <motion.div
+                        key={`${step.name}-${index}`}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                      >
+                        <motion.span
+                          animate={
+                            loading
+                              ? { opacity: [0.4, 1, 0.4] }
+                              : { opacity: 1 }
+                          }
+                          transition={{ duration: 1.2, repeat: Infinity }}
+                          className={`mt-1 h-2 w-2 rounded-full ${
+                            step.status === "failed"
+                              ? "bg-rose-400"
+                              : "bg-emerald-400"
+                          }`}
+                        />
+                        <div className="flex-1">
+                          <p className="text-slate-200">{step.name}</p>
+                          {step.detail ? (
+                            <p className="text-xs text-slate-500">
+                              {step.detail}
+                            </p>
+                          ) : null}
+                        </div>
+                        {step.durationMs ? (
+                          <span className="text-xs text-slate-500">
+                            {(step.durationMs / 1000).toFixed(2)}s
+                          </span>
+                        ) : null}
+                      </motion.div>
+                    ))}
+                  </div>
+                  <div className="mt-4 text-xs text-slate-500">
+                    {loading
+                      ? "Streaming live agent steps to keep you informed."
+                      : "Agent steps recorded for transparency."}
+                  </div>
+                </>
               )}
-            </AnimatePresence>
+              {loading && url && iframeStatus === "failed" ? (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-500">
+                  This site blocks embedded previews. Showing activity panel
+                  instead.
+                </div>
+              ) : null}
+            </div>
           </section>
         </div>
       </motion.div>
