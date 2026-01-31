@@ -9,11 +9,25 @@ export async function POST(request: Request) {
 
   let body: { url?: string };
   try {
-    body = await trackStep("Parse request", async () => {
-      return (await request.json()) as { url?: string };
-    });
+    body = (await request.json()) as { url?: string };
   } catch {
-    return respond(["analysis_failed"]);
+    return NextResponse.json({
+      verdict: "unclear",
+      flags: ["analysis_failed" as RuleFlag],
+      explanations: explainFlags(["analysis_failed"]),
+      processingMs: Date.now() - startedAt,
+      steps: [],
+      insight: null,
+      details: {
+        name: "",
+        price: null,
+        description: "",
+        flags: [],
+        hiddenFindings: [],
+        policyStatus: "missing",
+      },
+      previewImage: null,
+    });
   }
 
   const url = typeof body.url === "string" ? body.url.trim() : "";
