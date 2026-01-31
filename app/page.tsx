@@ -64,6 +64,8 @@ export default function HomePage() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<StepEvent[]>([]);
+  const [liveRisk, setLiveRisk] = useState<string | null>(null);
+  const [liveInsight, setLiveInsight] = useState<string | null>(null);
   const [productInfo, setProductInfo] = useState<ProductInfo>({
     status: "idle",
     title: null,
@@ -73,15 +75,12 @@ export default function HomePage() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [cardExpanded, setCardExpanded] = useState(false);
   const [buttonHover, setButtonHover] = useState(false);
-  const [ripple, setRipple] = useState<{ id: string; x: number; y: number } | null>(
-    null
-  );
   const sourceRef = useRef<EventSource | null>(null);
   const prefersReducedMotion = useReducedMotion();
-  const totalSteps = 9;
+  const totalSteps = 11;
   const easeOut = [0.16, 1, 0.3, 1] as const;
   const easeInOut = [0.4, 0, 0.2, 1] as const;
-  const progress = Math.min(steps.length / totalSteps, 1);
+  const progress = result ? 1 : Math.min(steps.length / totalSteps, 1);
   const activeStepId = running ? steps[steps.length - 1]?.id : null;
 
   const fallbackFlags: RuleFlag[] = ["analysis_failed"];
@@ -100,6 +99,8 @@ export default function HomePage() {
     setResult(null);
     setRunning(true);
     setSteps([]);
+    setLiveRisk(null);
+    setLiveInsight(null);
     setProductInfo({
       status: "idle",
       title: null,
@@ -153,6 +154,12 @@ export default function HomePage() {
       source.onmessage = (event) => {
         const step = JSON.parse(event.data) as StepEvent;
         setSteps((prev) => [...prev, step]);
+        if (step.name === "risk_update") {
+          setLiveRisk(step.message);
+        }
+        if (step.name === "insight_update") {
+          setLiveInsight(step.message);
+        }
         pushToast(`${step.emoji} ${step.message}...`);
       };
 
@@ -350,22 +357,11 @@ export default function HomePage() {
     []
   );
 
-  const handleCardRipple = (event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const id = Math.random().toString(36).slice(2);
-    setRipple({ id, x, y });
-    setTimeout(() => {
-      setRipple((prev) => (prev?.id === id ? null : prev));
-    }, 600);
-  };
-
   return (
-    <main className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-4 py-16">
+    <main className="relative min-h-screen w-full bg-[#0b0b0c] px-6 py-12 text-slate-100">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <motion.div
-          className="absolute left-1/2 top-[-10%] h-64 w-64 -translate-x-1/2 rounded-full bg-sky-400/20 blur-[120px]"
+          className="absolute left-1/2 top-[-10%] h-64 w-64 -translate-x-1/2 rounded-full bg-white/10 blur-[140px]"
           animate={
             prefersReducedMotion
               ? { opacity: 0.6 }
@@ -378,7 +374,7 @@ export default function HomePage() {
           }
         />
         <motion.div
-          className="absolute right-[-10%] top-[20%] h-72 w-72 rounded-full bg-fuchsia-500/20 blur-[140px]"
+          className="absolute right-[-10%] top-[15%] h-72 w-72 rounded-full bg-slate-500/15 blur-[160px]"
           animate={
             prefersReducedMotion
               ? { opacity: 0.5 }
@@ -391,7 +387,7 @@ export default function HomePage() {
           }
         />
         <motion.div
-          className="absolute bottom-[-20%] left-[10%] h-80 w-80 rounded-full bg-emerald-400/10 blur-[160px]"
+          className="absolute bottom-[-20%] left-[10%] h-80 w-80 rounded-full bg-slate-400/10 blur-[180px]"
           animate={
             prefersReducedMotion
               ? { opacity: 0.5 }
@@ -405,254 +401,336 @@ export default function HomePage() {
         />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.7, ease: easeOut, delay: 0.1 }}
-        className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.4)] backdrop-blur-xl animated-gradient"
-        onMouseDown={handleCardRipple}
-        style={{ transformStyle: "preserve-3d" }}
-      >
-        {ripple ? (
-          <span
-            className="pointer-events-none absolute h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 blur-2xl"
-            style={{
-              left: ripple.x,
-              top: ripple.y,
-              animation: prefersReducedMotion ? "none" : "ripple 0.6s ease-out",
-            }}
-          />
-        ) : null}
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5" />
-        <div className="relative">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={
-              prefersReducedMotion ? { duration: 0 } : { duration: 0.25, ease: easeOut }
-            }
-            className="text-center"
-          >
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-              TrueCart
-            </p>
-            <h1 className="mt-3 flex flex-wrap justify-center gap-x-2 text-3xl font-semibold text-white sm:text-4xl">
-              {heroWords.map((word, index) => (
-                <motion.span
-                  key={word}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={
-                    prefersReducedMotion
-                      ? { duration: 0 }
-                      : { duration: 0.4, delay: 0.05 * index }
-                  }
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </h1>
-            <motion.div
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.6, ease: easeOut }}
-              className="mx-auto mt-3 h-1 w-24 origin-left rounded-full bg-gradient-to-r from-sky-400/80 via-indigo-400/60 to-transparent"
-            />
-            <p className="mt-3 text-sm text-slate-400">
-              One URL in, one verdict out. Fast, clean, and confidence-first.
-            </p>
-          </motion.div>
+      <div className="relative mx-auto w-full max-w-6xl">
+        <div className="flex flex-wrap items-center justify-between gap-4 text-[10px] uppercase tracking-[0.45em] text-slate-500">
+          <span>TrueCart</span>
+          <span>Application Rejection Analyzer</span>
+        </div>
 
-          <motion.form
-            onSubmit={onSubmit}
-            className="mt-8 flex flex-col gap-4 sm:flex-row"
-            animate={{
-              rotateX: cardExpanded ? 0 : -6,
-              scaleY: cardExpanded ? 1 : 0.85,
-              boxShadow: cardExpanded
-                ? "0 16px 60px rgba(0,0,0,0.45)"
-                : "0 6px 30px rgba(0,0,0,0.25)",
-            }}
-            transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.4, ease: easeOut }}
-            style={{ transformOrigin: "top center" }}
-            onFocus={() => setCardExpanded(true)}
-          >
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.6, ease: easeOut }}
+          className="mt-10 grid gap-10 lg:grid-cols-[1.05fr_0.95fr]"
+        >
+          <div className="space-y-8">
             <motion.div
-              animate={{
-                boxShadow: isFocused
-                  ? "0 0 0 1px rgba(148, 163, 184, 0.4), 0 0 30px rgba(59, 130, 246, 0.35)"
-                  : "0 0 0 1px rgba(148, 163, 184, 0.15), 0 0 0 rgba(0,0,0,0)",
-                scale: pulseInput ? 1.01 : 1,
-              }}
-              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: easeOut }}
-              className="flex-1 rounded-2xl border border-white/10 bg-white/5 p-[1px] backdrop-blur"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={
+                prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: easeOut }
+              }
             >
-              <input
-                type="url"
-                required
-                placeholder="Paste product URL"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                className="w-full rounded-[15px] border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
-              />
-            </motion.div>
-            <motion.button
-              type="submit"
-              disabled={loading}
-              whileHover={{ scale: 1.03, boxShadow: "0 0 0 3px rgba(59,130,246,0.25)" }}
-              whileTap={{ scale: 0.96 }}
-              animate={{
-                boxShadow: loading
-                  ? "0 0 25px rgba(59, 130, 246, 0.35)"
-                  : "0 0 18px rgba(15, 23, 42, 0.2)",
-              }}
-              className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-500/90 via-blue-500/90 to-indigo-500/90 px-6 py-3 text-sm font-semibold text-white transition disabled:opacity-70"
-              onMouseEnter={() => setButtonHover(true)}
-              onMouseLeave={() => setButtonHover(false)}
-            >
-              <span className="relative z-10 flex items-center justify-center gap-2">
-                {loading ? "Analyzing" : "Analyze"}
-                {loading ? (
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">
+                Trust signal engine
+              </p>
+              <h1 className="mt-4 text-4xl font-semibold uppercase leading-tight tracking-[0.08em] text-white sm:text-5xl lg:text-6xl">
+                {heroWords.map((word, index) => (
                   <motion.span
-                    animate={prefersReducedMotion ? { rotate: 0 } : { rotate: 360 }}
+                    key={word}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={
                       prefersReducedMotion
                         ? { duration: 0 }
-                        : { duration: 2.4, repeat: Infinity, ease: "linear" }
+                        : { duration: 0.4, delay: 0.05 * index }
                     }
-                    className="text-base"
+                    className="mr-2 inline-block"
                   >
-                    ⟳
+                    {word}
                   </motion.span>
-                ) : null}
-              </span>
-              <motion.span
-                aria-hidden
-                className="absolute inset-0 bg-white/10"
-                animate={
-                  loading
-                    ? { opacity: 0.6, backgroundPosition: ["0% 50%", "100% 50%"] }
-                    : { opacity: 0 }
-                }
-                transition={
-                  prefersReducedMotion
-                    ? { duration: 0 }
-                    : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
-                }
-                style={{
-                  backgroundImage:
-                    "linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 100%)",
-                  backgroundSize: "200% 200%",
-                }}
-              />
-              <AnimatePresence>
-                {buttonHover ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                    transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2 }}
-                    className="absolute -bottom-10 left-1/2 w-max -translate-x-1/2 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-slate-200 shadow-lg backdrop-blur"
-                  >
-                    We scan public sources only 🔍
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </motion.button>
-          </motion.form>
+                ))}
+              </h1>
+              <div className="mt-4 h-px w-32 bg-gradient-to-r from-white/50 via-white/10 to-transparent" />
+              <p className="mt-4 max-w-lg text-sm text-slate-400">
+                Paste a product URL to stream real-time analysis updates, risk snapshots,
+                and a final verdict — no hidden automation.
+              </p>
+            </motion.div>
 
-          <div className="mt-6">
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-300">
-                  Agent activity
-                </p>
-                <span className="text-xs text-slate-500">
-                  {running ? "Live" : "Idle"}
-                </span>
-              </div>
-              <div className="mt-3">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                  <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-sky-400 via-indigo-400 to-emerald-400"
-                    animate={{ width: `${progress * 100}%` }}
-                    transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.25 }}
+            <motion.form
+              onSubmit={onSubmit}
+              className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur"
+              animate={{
+                rotateX: cardExpanded ? 0 : -4,
+                scaleY: cardExpanded ? 1 : 0.92,
+                boxShadow: cardExpanded
+                  ? "0 18px 60px rgba(0,0,0,0.45)"
+                  : "0 8px 30px rgba(0,0,0,0.25)",
+              }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.35, ease: easeOut }}
+              style={{ transformOrigin: "top center" }}
+              onFocus={() => setCardExpanded(true)}
+            >
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <motion.div
+                  animate={{
+                    boxShadow: isFocused
+                      ? "0 0 0 1px rgba(148, 163, 184, 0.45), 0 0 30px rgba(255,255,255,0.08)"
+                      : "0 0 0 1px rgba(148, 163, 184, 0.15), 0 0 0 rgba(0,0,0,0)",
+                    scale: pulseInput ? 1.01 : 1,
+                  }}
+                  transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: easeOut }}
+                  className="flex-1 rounded-2xl border border-white/10 bg-black/40 p-[1px]"
+                >
+                  <input
+                    type="url"
+                    required
+                    placeholder="Paste product URL"
+                    value={url}
+                    onChange={(event) => setUrl(event.target.value)}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    className="w-full rounded-[15px] border border-white/10 bg-black/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
                   />
-                </div>
-              </div>
-              <div className="mt-4 space-y-3 text-xs text-slate-200">
-                <AnimatePresence initial={false}>
-                  {steps.length ? (
-                    steps.map((step, index) => (
-                      <motion.div
-                        key={step.id}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -8 }}
+                </motion.div>
+                <motion.button
+                  type="submit"
+                  disabled={loading}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  animate={{
+                    boxShadow: loading
+                      ? "0 0 25px rgba(255, 255, 255, 0.2)"
+                      : "0 0 18px rgba(15, 23, 42, 0.2)",
+                  }}
+                  className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/10 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition disabled:opacity-70"
+                  onMouseEnter={() => setButtonHover(true)}
+                  onMouseLeave={() => setButtonHover(false)}
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    {loading ? "Analyzing" : "Analyze"}
+                    {loading ? (
+                      <motion.span
+                        animate={prefersReducedMotion ? { rotate: 0 } : { rotate: 360 }}
                         transition={
                           prefersReducedMotion
                             ? { duration: 0 }
-                            : { duration: 0.25, delay: index * 0.03 }
+                            : { duration: 2.4, repeat: Infinity, ease: "linear" }
                         }
-                        className={`rounded-xl border border-white/10 bg-white/5 px-3 py-2 ${
-                          step.id === activeStepId ? "shadow-[0_0_20px_rgba(59,130,246,0.25)]" : ""
-                        }`}
+                        className="text-base"
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="text-base">{step.emoji}</div>
-                          <div className="flex-1">
-                            <p className="text-[11px] uppercase text-slate-400">
-                              {step.name.replace(/_/g, " ")}
-                            </p>
-                            <p className="text-sm text-slate-200">
-                              {step.message}
-                            </p>
-                            <p className="text-[11px] text-slate-500">
-                              {new Date(step.time).toLocaleTimeString()}
-                            </p>
-                          </div>
-                          {running && step.id === activeStepId ? (
-                            <div className="flex items-center gap-1 text-slate-400">
-                              <motion.span
-                                animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [0.2, 1, 0.2] }}
-                                transition={prefersReducedMotion ? { duration: 0 } : { duration: 1, repeat: Infinity }}
-                                className="h-1.5 w-1.5 rounded-full bg-slate-400"
-                              />
-                              <motion.span
-                                animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [0.2, 1, 0.2] }}
-                                transition={prefersReducedMotion ? { duration: 0 } : { duration: 1, repeat: Infinity, delay: 0.2 }}
-                                className="h-1.5 w-1.5 rounded-full bg-slate-400"
-                              />
-                              <motion.span
-                                animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [0.2, 1, 0.2] }}
-                                transition={prefersReducedMotion ? { duration: 0 } : { duration: 1, repeat: Infinity, delay: 0.4 }}
-                                className="h-1.5 w-1.5 rounded-full bg-slate-400"
-                              />
-                            </div>
-                          ) : null}
-                        </div>
+                        ⟳
+                      </motion.span>
+                    ) : null}
+                  </span>
+                  <motion.span
+                    aria-hidden
+                    className="absolute inset-0 bg-white/10"
+                    animate={
+                      loading
+                        ? { opacity: 0.4, backgroundPosition: ["0% 50%", "100% 50%"] }
+                        : { opacity: 0 }
+                    }
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0 }
+                        : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+                    }
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 100%)",
+                      backgroundSize: "200% 200%",
+                    }}
+                  />
+                  <AnimatePresence>
+                    {buttonHover ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2 }}
+                        className="absolute -bottom-10 left-1/2 w-max -translate-x-1/2 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-slate-200 shadow-lg backdrop-blur"
+                      >
+                        We scan public sources only 🔍
                       </motion.div>
-                    ))
-                  ) : (
+                    ) : null}
+                  </AnimatePresence>
+                </motion.button>
+              </div>
+            </motion.form>
+
+            <div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-300">
+                    Agent activity
+                  </p>
+                  <span className="text-xs text-slate-500">
+                    {running ? "Live" : "Idle"}
+                  </span>
+                </div>
+                {(liveRisk || liveInsight) && (
+                  <div className="mt-3 space-y-2 text-xs text-slate-200">
+                    {liveRisk ? (
+                      <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-rose-100">
+                        {liveRisk}
+                      </div>
+                    ) : null}
+                    {liveInsight ? (
+                      <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-emerald-100">
+                        {liveInsight}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+                <div className="mt-3">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                     <motion.div
-                      key="empty-activity"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="text-slate-500"
-                    >
-                      No activity yet. Paste a URL to begin.
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      className="h-full rounded-full bg-gradient-to-r from-sky-400 via-indigo-400 to-emerald-400"
+                      animate={{ width: `${progress * 100}%` }}
+                      transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.25 }}
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3 text-xs text-slate-200">
+                  <AnimatePresence initial={false}>
+                    {steps.length ? (
+                      steps.map((step, index) => (
+                        <motion.div
+                          key={step.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -8 }}
+                          transition={
+                            prefersReducedMotion
+                              ? { duration: 0 }
+                              : { duration: 0.25, delay: index * 0.03 }
+                          }
+                          className={`rounded-xl border border-white/10 bg-white/5 px-3 py-2 ${
+                            step.id === activeStepId ? "shadow-[0_0_20px_rgba(59,130,246,0.25)]" : ""
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="text-base">{step.emoji}</div>
+                            <div className="flex-1">
+                              <p className="text-[11px] uppercase text-slate-400">
+                                {step.name.replace(/_/g, " ")}
+                              </p>
+                              <p className="text-sm text-slate-200">
+                                {step.message}
+                              </p>
+                              <p className="text-[11px] text-slate-500">
+                                {new Date(step.time).toLocaleTimeString()}
+                              </p>
+                            </div>
+                            {running && step.id === activeStepId ? (
+                              <div className="flex items-center gap-1 text-slate-400">
+                                <motion.span
+                                  animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [0.2, 1, 0.2] }}
+                                  transition={prefersReducedMotion ? { duration: 0 } : { duration: 1, repeat: Infinity }}
+                                  className="h-1.5 w-1.5 rounded-full bg-slate-400"
+                                />
+                                <motion.span
+                                  animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [0.2, 1, 0.2] }}
+                                  transition={prefersReducedMotion ? { duration: 0 } : { duration: 1, repeat: Infinity, delay: 0.2 }}
+                                  className="h-1.5 w-1.5 rounded-full bg-slate-400"
+                                />
+                                <motion.span
+                                  animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [0.2, 1, 0.2] }}
+                                  transition={prefersReducedMotion ? { duration: 0 } : { duration: 1, repeat: Infinity, delay: 0.4 }}
+                                  className="h-1.5 w-1.5 rounded-full bg-slate-400"
+                                />
+                              </div>
+                            ) : null}
+                          </div>
+                        </motion.div>
+                      ))
+                    ) : (
+                      <motion.div
+                        key="empty-activity"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="text-slate-500"
+                      >
+                        No activity yet. Paste a URL to begin.
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
           </div>
 
-          <section className="mt-6">
+          <div className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={
+                prefersReducedMotion ? { duration: 0 } : { duration: 0.25, ease: easeOut }
+              }
+              className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_12px_50px_rgba(0,0,0,0.35)] backdrop-blur"
+            >
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                Live product snapshot
+              </p>
+              {productInfo.status === "blocked" ? (
+                <p className="mt-3 text-sm text-amber-200">
+                  Product page blocks automated access. Showing policy-only analysis.
+                </p>
+              ) : null}
+              <div className="mt-4 space-y-3 text-sm text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-slate-500">Name</span>
+                  <span className="text-right text-white">
+                    {productInfo.title ?? result?.details?.name ?? "Waiting..."}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-slate-500">Price</span>
+                  <span className="text-right text-white">
+                    {productInfo.price ?? result?.details?.price ?? "Waiting..."}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-slate-500">Policy pages</span>
+                  <span className="text-right text-white">
+                    {result?.details?.policyStatus === "present"
+                      ? "Detected"
+                      : result?.details?.policyStatus === "missing"
+                        ? "Not found"
+                        : "Pending"}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-slate-300">Description</p>
+                <p className="mt-2 text-sm text-slate-300">
+                  {productInfo.description ??
+                    result?.details?.description ??
+                    "Waiting for extraction..."}
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={
+                prefersReducedMotion ? { duration: 0 } : { duration: 0.25, ease: easeOut }
+              }
+              className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_12px_50px_rgba(0,0,0,0.35)] backdrop-blur"
+            >
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                Live document checks
+              </p>
+              <div className="mt-4 space-y-2 text-sm text-slate-300">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Eligibility rules</span>
+                  <span>{result ? "Extracted" : "Pending"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Exclusion rules</span>
+                  <span>{result ? "Extracted" : "Pending"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Contradictions</span>
+                  <span>{result ? `${result.flags.length} flags` : "Pending"}</span>
+                </div>
+              </div>
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -701,7 +779,7 @@ export default function HomePage() {
                     <motion.div
                       layout
                       {...verdictMotion}
-                      className={`relative flex flex-col items-center justify-center gap-3 rounded-3xl border border-white/10 bg-black/30 px-10 py-8 shadow-2xl backdrop-blur ${verdictConfig.glow}`}
+                      className={`relative flex flex-col items-center justify-center gap-3 rounded-3xl border border-white/10 bg-black/30 px-8 py-8 shadow-2xl backdrop-blur ${verdictConfig.glow}`}
                     >
                       <motion.div
                         {...ringMotion}
@@ -729,44 +807,8 @@ export default function HomePage() {
                         className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left backdrop-blur"
                       >
                         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                          Product details
+                          Details
                         </p>
-                        {productInfo.status === "blocked" ? (
-                          <p className="mt-3 text-sm text-amber-200">
-                            Product page blocks automated access. Showing
-                            policy-only analysis.
-                          </p>
-                        ) : null}
-                        <div className="mt-3 space-y-2 text-sm text-slate-200">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-slate-400">Name</span>
-                            <span className="text-right text-white">
-                              {productInfo.title ?? result.details.name}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-slate-400">Price</span>
-                            <span className="text-right text-white">
-                              {productInfo.price ?? result.details.price ?? "Not found"}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-slate-400">Policy pages</span>
-                            <span className="text-right text-white">
-                              {result.details.policyStatus === "present"
-                                ? "Detected"
-                                : "Not found"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mt-4">
-                          <p className="text-sm font-semibold text-slate-300">
-                            Description
-                          </p>
-                          <p className="mt-2 text-sm text-slate-300">
-                            {productInfo.description ?? result.details.description}
-                          </p>
-                        </div>
                         <div className="mt-4">
                           <p className="text-sm font-semibold text-slate-300">
                             Flags
@@ -816,9 +858,9 @@ export default function HomePage() {
                 )}
               </AnimatePresence>
             </motion.div>
-          </section>
-        </div>
-      </motion.div>
+          </div>
+        </motion.div>
+      </div>
 
       <div className="pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2 space-y-2">
         <AnimatePresence>

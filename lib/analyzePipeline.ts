@@ -170,6 +170,13 @@ export async function analyzeProduct(
     const rules = await trackStep("Detect contradictions", () =>
       detectContradictions(claims, policy)
     );
+    sendStep(
+      "risk_update",
+      "⚠️",
+      `Risk update: ${rules.verdict.toUpperCase()} • ${rules.flags.length} flag${
+        rules.flags.length === 1 ? "" : "s"
+      }`
+    );
     const explanations = await trackStep("Explain flags", () =>
       explainFlags(rules.flags)
     );
@@ -184,6 +191,12 @@ export async function analyzeProduct(
             policy
           )
         : null;
+    sendStep(
+      "insight_update",
+      "💡",
+      insight?.message ??
+        "Insights limited due to detected policy conflicts."
+    );
     const details = buildProductDetails(
       url,
       testCase.productText,
@@ -226,6 +239,13 @@ export async function analyzeProduct(
   const rules = await trackStep("Detect contradictions", () =>
     detectContradictions(claims, policy)
   );
+  sendStep(
+    "risk_update",
+    "⚠️",
+    `Risk update: ${rules.verdict.toUpperCase()} • ${rules.flags.length} flag${
+      rules.flags.length === 1 ? "" : "s"
+    }`
+  );
   const explanations = await trackStep("Explain flags", () =>
     explainFlags(rules.flags)
   );
@@ -235,6 +255,12 @@ export async function analyzeProduct(
     rules.flags.length === 0 || !policyText.trim()
       ? buildProductInsight(mino.productText, policyText, claims, policy)
       : null;
+  sendStep(
+    "insight_update",
+    "💡",
+    insight?.message ??
+      "Insights limited due to detected policy conflicts."
+  );
   const details = buildProductDetails(
     url,
     mino.productText,
