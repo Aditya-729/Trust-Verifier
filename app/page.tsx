@@ -1,9 +1,10 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { RuleFlag } from "@/lib/rules";
+import ActivityFeed from "@/components/ActivityFeed";
 
 type AnalyzeResponse = {
   verdict: "good" | "caution" | "risk" | "unclear";
@@ -34,6 +35,19 @@ type AnalyzeResponse = {
   };
 };
 
+type LogEntry = {
+  id: string;
+  text: string;
+  type: "info" | "success" | "warn";
+};
+
+type Toast = {
+  id: string;
+  message: string;
+};
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export default function HomePage() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,35 +55,101 @@ export default function HomePage() {
   const [isFocused, setIsFocused] = useState(false);
   const [pulseInput, setPulseInput] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [running, setRunning] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [cardExpanded, setCardExpanded] = useState(false);
+  const [buttonHover, setButtonHover] = useState(false);
+  const [ripple, setRipple] = useState<{ id: string; x: number; y: number } | null>(
+    null
+  );
+  const runIdRef = useRef(0);
+  const prefersReducedMotion = useReducedMotion();
   const easeOut = [0.16, 1, 0.3, 1] as const;
   const easeInOut = [0.4, 0, 0.2, 1] as const;
 
   const fallbackFlags: RuleFlag[] = ["analysis_failed"];
 
+  const pushLog = (text: string, type: "info" | "success" | "warn" = "info") => {
+    setLogs((prev) => [
+      ...prev,
+      { id: Math.random().toString(36).slice(2), text, type },
+    ]);
+  };
+
+  const pushToast = (message: string) => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 2600);
+  };
+
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setResult(null);
+    setLogs([]);
+    setRunning(true);
+    setCardExpanded(true);
+    pushToast("🚀 Analysis started");
+
+    const runId = runIdRef.current + 1;
+    runIdRef.current = runId;
+    const pushLogSafe = (
+      text: string,
+      type: "info" | "success" | "warn" = "info"
+    ) => {
+      if (runIdRef.current !== runId) return;
+      pushLog(text, type);
+    };
 
     try {
-      const res = await fetch("/api/analyze", {
+      pushLogSafe("🌐 Opening website…");
+      await delay(360);
+      pushLogSafe("🔍 Searching for public claims…");
+      await delay(420);
+      pushLogSafe("📄 Reading important pages…");
+      await delay(380);
+      pushLogSafe("📤 Sending website data for verification…");
+
+      const waitLogs = async () => {
+        await delay(420);
+        pushLogSafe("🧠 Analyzing trust signals…");
+        await delay(520);
+        pushLogSafe("🔗 Matching claims with evidence…");
+      };
+
+      const responsePromise = fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
+
+      waitLogs();
+
+      const res = await responsePromise;
       const data = (await res.json()) as AnalyzeResponse;
       if (!res.ok) {
         throw new Error("Request failed.");
       }
       setResult(data);
+      pushLogSafe("⚖️ Computing trust verdict…", "success");
+      await delay(360);
+      pushLogSafe("📊 Preparing report…", "success");
+      await delay(320);
+      pushLogSafe("✅ Trust report ready.", "success");
+      pushToast("🎉 Trust report generated");
     } catch {
       setResult({
         verdict: "unclear",
         flags: fallbackFlags,
         explanations: [],
       });
+      pushLogSafe("⚠️ Unable to complete analysis.", "warn");
     } finally {
       setLoading(false);
+      setRunning(false);
     }
   };
 
@@ -79,6 +159,14 @@ export default function HomePage() {
     const timer = setTimeout(() => setPulseInput(false), 150);
     return () => clearTimeout(timer);
   }, [url]);
+
+  useEffect(() => {
+    if (loading || result) {
+      setCardExpanded(true);
+      return;
+    }
+    setCardExpanded(false);
+  }, [loading, result]);
 
   useEffect(() => {
     if (!loading) {
@@ -188,66 +276,153 @@ export default function HomePage() {
       return {
         initial: { opacity: 0.6, backgroundPosition: "0% 50%" },
         animate: { opacity: 1, backgroundPosition: "100% 50%" },
-        transition: { duration: 4, ease: easeInOut, repeat: Infinity },
+        transition: prefersReducedMotion
+          ? { duration: 0 }
+          : { duration: 4, ease: easeInOut, repeat: Infinity },
       };
     }
     return {
       initial: { opacity: 0.7 },
       animate: { opacity: 1 },
-      transition: { duration: 0.8, ease: easeOut },
+      transition: prefersReducedMotion ? { duration: 0 } : { duration: 0.8, ease: easeOut },
     };
-  }, [easeInOut, easeOut, result?.verdict]);
+  }, [easeInOut, easeOut, prefersReducedMotion, result?.verdict]);
 
-  const activitySteps = useMemo(() => {
-    if (result?.steps?.length) return result.steps;
-    return [
-      { name: "Opening product page", status: "done" as const },
-      { name: "Extracting title and price", status: "done" as const },
-      { name: "Reading product description", status: "done" as const },
-      { name: "Scanning product copy", status: "done" as const },
-      { name: "Finding policy pages", status: "done" as const },
-      { name: "Extracting claims", status: "done" as const },
-      { name: "Comparing with policies", status: "done" as const },
-    ];
-  }, [result?.steps]);
+  const heroWords = useMemo(
+    () => "Instant trust signal for any product link".split(" "),
+    []
+  );
+
+  const handleCardRipple = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const id = Math.random().toString(36).slice(2);
+    setRipple({ id, x, y });
+    setTimeout(() => {
+      setRipple((prev) => (prev?.id === id ? null : prev));
+    }, 600);
+  };
 
   return (
     <motion.main
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, ease: easeOut }}
+      transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.6, ease: "easeOut" }}
       className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-4 py-16"
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[-10%] h-64 w-64 -translate-x-1/2 rounded-full bg-sky-400/20 blur-[120px]" />
-        <div className="absolute right-[-10%] top-[20%] h-72 w-72 rounded-full bg-fuchsia-500/20 blur-[140px]" />
-        <div className="absolute bottom-[-20%] left-[10%] h-80 w-80 rounded-full bg-emerald-400/10 blur-[160px]" />
+        <motion.div
+          className="absolute left-1/2 top-[-10%] h-64 w-64 -translate-x-1/2 rounded-full bg-sky-400/20 blur-[120px]"
+          animate={
+            prefersReducedMotion
+              ? { opacity: 0.6 }
+              : { x: [0, -20, 10, 0], opacity: [0.4, 0.7, 0.5, 0.6] }
+          }
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { duration: 18, repeat: Infinity, ease: "easeInOut" }
+          }
+        />
+        <motion.div
+          className="absolute right-[-10%] top-[20%] h-72 w-72 rounded-full bg-fuchsia-500/20 blur-[140px]"
+          animate={
+            prefersReducedMotion
+              ? { opacity: 0.5 }
+              : { x: [0, 15, -10, 0], y: [0, -10, 10, 0], opacity: [0.5, 0.7, 0.4, 0.6] }
+          }
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { duration: 22, repeat: Infinity, ease: "easeInOut" }
+          }
+        />
+        <motion.div
+          className="absolute bottom-[-20%] left-[10%] h-80 w-80 rounded-full bg-emerald-400/10 blur-[160px]"
+          animate={
+            prefersReducedMotion
+              ? { opacity: 0.5 }
+              : { x: [0, 10, -20, 0], opacity: [0.3, 0.6, 0.4, 0.5] }
+          }
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : { duration: 26, repeat: Infinity, ease: "easeInOut" }
+          }
+        />
       </div>
 
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.7, ease: easeOut, delay: 0.1 }}
-        className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.4)] backdrop-blur-xl"
+        transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.7, ease: easeOut, delay: 0.1 }}
+        className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.4)] backdrop-blur-xl animated-gradient"
+        onMouseDown={handleCardRipple}
+        style={{ transformStyle: "preserve-3d" }}
       >
+        {ripple ? (
+          <span
+            className="pointer-events-none absolute h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 blur-2xl"
+            style={{
+              left: ripple.x,
+              top: ripple.y,
+              animation: prefersReducedMotion ? "none" : "ripple 0.6s ease-out",
+            }}
+          />
+        ) : null}
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5" />
         <div className="relative">
-          <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: easeOut }}
+            className="text-center"
+          >
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
               TrueCart
             </p>
-            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
-              Instant trust signal for any product link
+            <h1 className="mt-3 flex flex-wrap justify-center gap-x-2 text-3xl font-semibold text-white sm:text-4xl">
+              {heroWords.map((word, index) => (
+                <motion.span
+                  key={word}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={
+                    prefersReducedMotion
+                      ? { duration: 0 }
+                      : { duration: 0.4, delay: 0.05 * index }
+                  }
+                >
+                  {word}
+                </motion.span>
+              ))}
             </h1>
+            <motion.div
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.6, ease: easeOut }}
+              className="mx-auto mt-3 h-1 w-24 origin-left rounded-full bg-gradient-to-r from-sky-400/80 via-indigo-400/60 to-transparent"
+            />
             <p className="mt-3 text-sm text-slate-400">
               One URL in, one verdict out. Fast, clean, and confidence-first.
             </p>
-          </div>
+          </motion.div>
 
-          <form
+          <motion.form
             onSubmit={onSubmit}
             className="mt-8 flex flex-col gap-4 sm:flex-row"
+            animate={{
+              rotateX: cardExpanded ? 0 : -6,
+              scaleY: cardExpanded ? 1 : 0.85,
+              boxShadow: cardExpanded
+                ? "0 16px 60px rgba(0,0,0,0.45)"
+                : "0 6px 30px rgba(0,0,0,0.25)",
+            }}
+            transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.4, ease: easeOut }}
+            style={{ transformOrigin: "top center" }}
+            onFocus={() => setCardExpanded(true)}
           >
             <motion.div
               animate={{
@@ -256,7 +431,7 @@ export default function HomePage() {
                   : "0 0 0 1px rgba(148, 163, 184, 0.15), 0 0 0 rgba(0,0,0,0)",
                 scale: pulseInput ? 1.01 : 1,
               }}
-              transition={{ duration: 0.2, ease: easeOut }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: easeOut }}
               className="flex-1 rounded-2xl border border-white/10 bg-white/5 p-[1px] backdrop-blur"
             >
               <input
@@ -273,48 +448,73 @@ export default function HomePage() {
             <motion.button
               type="submit"
               disabled={loading}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.03, boxShadow: "0 0 0 3px rgba(59,130,246,0.25)" }}
+              whileTap={{ scale: 0.96 }}
               animate={{
                 boxShadow: loading
                   ? "0 0 25px rgba(59, 130, 246, 0.35)"
                   : "0 0 18px rgba(15, 23, 42, 0.2)",
               }}
               className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-500/90 via-blue-500/90 to-indigo-500/90 px-6 py-3 text-sm font-semibold text-white transition disabled:opacity-70"
+              onMouseEnter={() => setButtonHover(true)}
+              onMouseLeave={() => setButtonHover(false)}
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
+                {loading ? "Analyzing" : "Analyze"}
                 {loading ? (
-                  <span className="flex items-center gap-1">
-                    <span>Analyzing</span>
-                    <span className="flex gap-1">
-                      {[0, 1, 2].map((dot) => (
-                        <motion.span
-                          key={dot}
-                          className="h-1.5 w-1.5 rounded-full bg-white/90"
-                          animate={{ opacity: [0.2, 1, 0.2] }}
-                          transition={{
-                            duration: 1,
-                            repeat: Infinity,
-                            delay: dot * 0.2,
-                          }}
-                        />
-                      ))}
-                    </span>
-                  </span>
-                ) : (
-                  "Analyze"
-                )}
+                  <motion.span
+                    animate={prefersReducedMotion ? { rotate: 0 } : { rotate: 360 }}
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0 }
+                        : { duration: 2.4, repeat: Infinity, ease: "linear" }
+                    }
+                    className="text-base"
+                  >
+                    ⟳
+                  </motion.span>
+                ) : null}
               </span>
               <motion.span
                 aria-hidden
                 className="absolute inset-0 bg-white/10"
-                animate={{ opacity: loading ? 0.5 : 0 }}
-                transition={{ duration: 0.4 }}
+                animate={
+                  loading
+                    ? { opacity: 0.6, backgroundPosition: ["0% 50%", "100% 50%"] }
+                    : { opacity: 0 }
+                }
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+                }
+                style={{
+                  backgroundImage:
+                    "linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 100%)",
+                  backgroundSize: "200% 200%",
+                }}
               />
+              <AnimatePresence>
+                {buttonHover ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2 }}
+                    className="absolute -bottom-10 left-1/2 w-max -translate-x-1/2 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-slate-200 shadow-lg backdrop-blur"
+                  >
+                    We scan public sources only 🔍
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
             </motion.button>
-          </form>
+          </motion.form>
 
-          <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="mt-6">
+            <ActivityFeed logs={logs} running={running} />
+          </div>
+
+          <section className="mt-6">
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_12px_50px_rgba(0,0,0,0.35)] backdrop-blur">
               <AnimatePresence mode="wait">
                 {loading ? (
@@ -323,12 +523,12 @@ export default function HomePage() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 12 }}
-                    transition={{ duration: 0.4, ease: easeOut }}
+                    transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.4, ease: easeOut }}
                     className="flex flex-col items-center justify-center gap-4 text-center"
                   >
                     <motion.div
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 1.4, repeat: Infinity }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [0.5, 1, 0.5] }}
+                      transition={prefersReducedMotion ? { duration: 0 } : { duration: 1.4, repeat: Infinity }}
                       className="text-xs uppercase tracking-[0.3em] text-slate-400"
                     >
                       Live analysis
@@ -346,10 +546,10 @@ export default function HomePage() {
                 ) : result ? (
                   <motion.div
                     key={result.verdict}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, x: 20, clipPath: "inset(0 100% 0 0)" }}
+                    animate={{ opacity: 1, x: 0, clipPath: "inset(0 0% 0 0)" }}
                     exit={{ opacity: 0, y: 12 }}
-                    transition={{ duration: 0.6, ease: easeOut }}
+                    transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5, ease: easeOut }}
                     className="flex flex-col items-center justify-center gap-5 text-center"
                   >
                     <motion.div
@@ -460,75 +660,25 @@ export default function HomePage() {
                 )}
               </AnimatePresence>
             </div>
-
-            <div className="rounded-3xl border border-white/10 bg-black/30 p-6 text-left shadow-[0_12px_50px_rgba(0,0,0,0.35)] backdrop-blur">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                  Agent activity
-                </p>
-                <span className="text-xs text-slate-500">
-                  {loading ? "Live" : "Last run"}
-                </span>
-              </div>
-              {!loading && result?.previewImage ? (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
-                  <img
-                    src={result.previewImage}
-                    alt="Captured product preview"
-                    className="h-64 w-full object-cover"
-                  />
-                  <div className="border-t border-white/10 bg-black/40 px-3 py-2 text-xs text-slate-500">
-                    Captured preview from agent.
-                  </div>
-                </div>
-              ) : null}
-              <div className="mt-4 space-y-3 text-sm">
-                {activitySteps.map((step, index) => (
-                  <motion.div
-                    key={`${step.name}-${index}`}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
-                  >
-                    <motion.span
-                      animate={
-                        loading
-                          ? { opacity: [0.4, 1, 0.4] }
-                          : { opacity: 1 }
-                      }
-                      transition={{ duration: 1.2, repeat: Infinity }}
-                      className={`mt-1 h-2 w-2 rounded-full ${
-                        step.status === "failed"
-                          ? "bg-rose-400"
-                          : "bg-emerald-400"
-                      }`}
-                    />
-                    <div className="flex-1">
-                      <p className="text-slate-200">{step.name}</p>
-                      {step.detail ? (
-                        <p className="text-xs text-slate-500">
-                          {step.detail}
-                        </p>
-                      ) : null}
-                    </div>
-                    {step.durationMs ? (
-                      <span className="text-xs text-slate-500">
-                        {(step.durationMs / 1000).toFixed(2)}s
-                      </span>
-                    ) : null}
-                  </motion.div>
-                ))}
-              </div>
-              <div className="mt-4 text-xs text-slate-500">
-                {loading
-                  ? "Streaming live agent steps to keep you informed."
-                  : "Agent steps recorded for transparency."}
-              </div>
-            </div>
           </section>
         </div>
       </motion.div>
+
+      <div className="pointer-events-none fixed right-5 top-5 z-50 space-y-2">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="rounded-xl border border-white/10 bg-black/70 px-4 py-2 text-xs text-slate-200 shadow-lg backdrop-blur"
+            >
+              {toast.message}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </motion.main>
   );
 }
