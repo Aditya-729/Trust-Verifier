@@ -8,6 +8,9 @@ export type MinoResult = {
   productText: string;
   policyPages: MinoPolicyPage[];
   previewImage?: string;
+  productTitle?: string;
+  productPrice?: string;
+  productDescription?: string;
 };
 
 type RawMinoResult = {
@@ -16,10 +19,16 @@ type RawMinoResult = {
   policyPages?: unknown;
   screenshotDataUrl?: unknown;
   previewImage?: unknown;
+  productTitle?: unknown;
+  productPrice?: unknown;
+  productDescription?: unknown;
 };
 
 const PROMPT = [
   "Open the product page at the given url.",
+  "Extract the product title as text.",
+  "Extract the product price as text, including currency if present.",
+  "Extract the primary product description text.",
   "Extract visible text from the product page.",
   "Capture a single screenshot of the product page.",
   "Find links on the same site related to returns, refunds, warranty, or policies.",
@@ -28,6 +37,9 @@ const PROMPT = [
   "Return JSON only with this schema:",
   "{",
   '  "productUrl": string,',
+  '  "productTitle": string,',
+  '  "productPrice": string,',
+  '  "productDescription": string,',
   '  "productText": string,',
   '  "screenshotDataUrl": string,',
   '  "policyPages": [',
@@ -119,6 +131,14 @@ export async function runMinoAgent(url: string): Promise<MinoResult> {
       : typeof parsed.previewImage === "string"
         ? parsed.previewImage
         : undefined;
+  const productTitle =
+    typeof parsed.productTitle === "string" ? parsed.productTitle : undefined;
+  const productPrice =
+    typeof parsed.productPrice === "string" ? parsed.productPrice : undefined;
+  const productDescription =
+    typeof parsed.productDescription === "string"
+      ? parsed.productDescription
+      : undefined;
   const policyPages = Array.isArray(parsed.policyPages)
     ? parsed.policyPages
         .map((entry) => {
@@ -146,5 +166,8 @@ export async function runMinoAgent(url: string): Promise<MinoResult> {
     productText,
     policyPages,
     previewImage,
+    productTitle,
+    productPrice,
+    productDescription,
   };
 }

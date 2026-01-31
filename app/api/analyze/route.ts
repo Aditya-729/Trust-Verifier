@@ -194,7 +194,12 @@ export async function POST(request: Request) {
       policyText,
       rules.flags,
       claims,
-      policy
+      policy,
+      {
+        title: mino.productTitle,
+        price: mino.productPrice,
+        description: mino.productDescription,
+      }
     );
 
     return NextResponse.json({

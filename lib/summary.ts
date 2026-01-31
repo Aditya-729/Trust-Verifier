@@ -126,12 +126,23 @@ export function buildProductDetails(
   policyText: string,
   flags: RuleFlag[],
   claims: ExtractedClaims,
-  policy: ExtractedPolicy
+  policy: ExtractedPolicy,
+  overrides?: {
+    title?: string;
+    price?: string;
+    description?: string;
+  }
 ): ProductDetails {
   const policyStatus = policyText.trim() ? "present" : "missing";
-  const name = extractProductName(productText, url);
-  const price = extractPriceLabel(productText) ?? null;
+  const name =
+    overrides?.title?.trim() ||
+    extractProductName(productText, url);
+  const price =
+    overrides?.price?.trim() ||
+    extractPriceLabel(productText) ||
+    null;
   const description =
+    overrides?.description?.trim() ||
     firstSentences(productText, 6) ||
     "No detailed description found on the product page.";
   const hiddenFindings = describeHiddenFindings(flags, policyStatus);
