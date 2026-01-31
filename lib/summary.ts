@@ -45,7 +45,7 @@ function extractProductName(productText: string, fallbackUrl: string): string {
 
 function extractPriceLabel(productText: string): string | null {
   const match = productText.match(
-    /(USD|INR|EUR|GBP|CAD|AUD|[$€£₹])\s*([0-9]+(?:\.[0-9]{1,2})?)/i
+    /(USD|INR|EUR|GBP|CAD|AUD|[$€£₹])\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i
   );
   if (!match) return null;
   const currency = match[1].toUpperCase();
@@ -143,7 +143,8 @@ export function buildProductDetails(
     null;
   const description =
     overrides?.description?.trim() ||
-    firstSentences(productText, 6) ||
+    firstSentences(productText, 8) ||
+    (productText.trim() ? productText.trim().slice(0, 320) : "") ||
     "No detailed description found on the product page.";
   const hiddenFindings = describeHiddenFindings(flags, policyStatus);
 

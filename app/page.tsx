@@ -41,9 +41,6 @@ export default function HomePage() {
   const [isFocused, setIsFocused] = useState(false);
   const [pulseInput, setPulseInput] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [iframeStatus, setIframeStatus] = useState<
-    "idle" | "loading" | "loaded" | "failed"
-  >("idle");
   const easeOut = [0.16, 1, 0.3, 1] as const;
   const easeInOut = [0.4, 0, 0.2, 1] as const;
 
@@ -94,18 +91,6 @@ export default function HomePage() {
     }, 120);
     return () => clearInterval(timer);
   }, [loading]);
-
-  useEffect(() => {
-    if (!loading || !url) {
-      setIframeStatus("idle");
-      return;
-    }
-    setIframeStatus("loading");
-    const timeout = setTimeout(() => {
-      setIframeStatus((prev) => (prev === "loaded" ? prev : "failed"));
-    }, 4000);
-    return () => clearTimeout(timeout);
-  }, [loading, url]);
 
   const verdictConfig = useMemo(() => {
     const verdict = result?.verdict ?? "unclear";
@@ -217,6 +202,8 @@ export default function HomePage() {
     if (result?.steps?.length) return result.steps;
     return [
       { name: "Opening product page", status: "done" as const },
+      { name: "Extracting title and price", status: "done" as const },
+      { name: "Reading product description", status: "done" as const },
       { name: "Scanning product copy", status: "done" as const },
       { name: "Finding policy pages", status: "done" as const },
       { name: "Extracting claims", status: "done" as const },
@@ -477,28 +464,12 @@ export default function HomePage() {
             <div className="rounded-3xl border border-white/10 bg-black/30 p-6 text-left shadow-[0_12px_50px_rgba(0,0,0,0.35)] backdrop-blur">
               <div className="flex items-center justify-between">
                 <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                  {loading && url ? "Live portal" : "Agent activity"}
+                  Agent activity
                 </p>
                 <span className="text-xs text-slate-500">
                   {loading ? "Live" : "Last run"}
                 </span>
               </div>
-              {loading && url && iframeStatus !== "failed" ? (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
-                  <iframe
-                    title="Live site preview"
-                    src={url}
-                    className="h-64 w-full"
-                    onLoad={() => setIframeStatus("loaded")}
-                    onError={() => setIframeStatus("failed")}
-                  />
-                  <div className="border-t border-white/10 bg-black/40 px-3 py-2 text-xs text-slate-500">
-                    {iframeStatus === "loading"
-                      ? "Loading site preview..."
-                      : "Showing live site preview (if allowed)."}
-                  </div>
-                </div>
-              ) : null}
               {!loading && result?.previewImage ? (
                 <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
                   <img
@@ -509,12 +480,6 @@ export default function HomePage() {
                   <div className="border-t border-white/10 bg-black/40 px-3 py-2 text-xs text-slate-500">
                     Captured preview from agent.
                   </div>
-                </div>
-              ) : null}
-              {loading && url && iframeStatus === "failed" ? (
-                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-500">
-                  This site blocks embedded previews. Showing activity panel
-                  instead.
                 </div>
               ) : null}
               <div className="mt-4 space-y-3 text-sm">
