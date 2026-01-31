@@ -78,6 +78,7 @@ export default function HomePage() {
   );
   const sourceRef = useRef<EventSource | null>(null);
   const prefersReducedMotion = useReducedMotion();
+  const totalSteps = 9;
   const easeOut = [0.16, 1, 0.3, 1] as const;
   const easeInOut = [0.4, 0, 0.2, 1] as const;
   const progress = Math.min(steps.length / totalSteps, 1);
@@ -92,8 +93,6 @@ export default function HomePage() {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 2600);
   };
-
-  const totalSteps = 9;
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
